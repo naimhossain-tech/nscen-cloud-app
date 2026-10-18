@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NScen Cloud Desk</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #0b1220;
+      color: #e5edf8;
+    }
+    header {
+      padding: 24px;
+      border-bottom: 1px solid #263449;
+      background: #111c2e;
+    }
+    header p, .muted { color: #91a4bd; }
+    main { max-width: 1000px; margin: auto; padding: 24px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: #142238;
+      border: 1px solid #2a3c55;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 6px 0 14px;
+      border: 1px solid #40516b;
+      border-radius: 8px;
+      background: #0b1220;
+      color: white;
+    }
+    label { display: block; color: #cbd7e8; }
+    button {
+      padding: 12px 18px;
+      background: #42d6b0;
+      color: #09251f;
+      border: 0;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .status { color: #65e6b0; font-weight: 600; }
+    .message { padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+    .success { background: #123a32; }
+    .error { background: #48252b; }
+    .client {
+      border-top: 1px solid #2a3c55;
+      padding: 14px 0;
+      overflow-wrap: anywhere;
+    }
+    footer { padding: 24px; color: #91a4bd; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>NScen Cloud Desk</h1>
+    <p>Freelance projects, clients and task management</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <p>Logged in as: <strong>{{ current_user.username }}</strong></p>
+      <form action="{{ url_for('logout') }}" method="post" style="margin:0">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit">Logout</button>
+      </form>
+    </div>
+  </header>
+
+  <main>
+    <h2>Workspace overview</h2>
+
+    <div class="grid">
+      <section class="card">
+        <p class="muted">Clients</p>
+        <h2>{{ clients|length }}</h2>
+        <p class="muted">Clients saved in your local database.</p>
+      </section>
+      <section class="card">
+        <p class="muted">Projects</p>
+        <h2>{{ projects|length }}</h2>
+        <p class="muted">Projects saved in your local database.</p>
+      </section>
+      <section class="card">
+        <p class="muted">Application</p>
+        <p class="status">● Running</p>
+        <a href="/health" style="color:#72d9cc">Check app health</a>
+      </section>
+    </div>
+
+<section class="card">
+  <h2>Add a project</h2>
+
+  <form action="{{ url_for('add_project') }}" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="project-name">Project name *</label>
+    <input id="project-name" name="name" maxlength="160"
+           required placeholder="e.g. Business website">
+
+    <label for="project-client">Client</label>
+    <select id="project-client" name="client_id">
+      <option value="">No client selected</option>
+      {% for client in clients %}
+        <option value="{{ client.id }}">{{ client.name }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="project-description">Description</label>
+    <textarea id="project-description" name="description"
+              rows="3" placeholder="Project details"></textarea>
+
+    <label for="project-status">Status</label>
+    <select id="project-status" name="status">
+      {% for status in project_statuses %}
+        <option value="{{ status }}">{{ status }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="project-budget">Budget</label>
+    <input id="project-budget" name="budget" type="number"
+           min="0" step="0.01" value="0">
+
+    <label for="project-deadline">Deadline</label>
+    <input id="project-deadline" name="deadline" type="date">
+
+    <button type="submit">Save project</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Your projects</h2>
+
+  {% if projects %}
+    {% for project in projects %}
+      <div class="client">
+        <strong>{{ project.name }}</strong>
+
+        <p class="muted">
+          Client: {{ project.client_name or "No client assigned" }}
+        </p>
+
+        <p>Status: <strong>{{ project.status }}</strong></p>
+
+        <p>Budget: {{ "%.2f"|format(project.budget) }}</p>
+
+        {% if project.deadline %}
+          <p>Deadline: {{ project.deadline }}</p>
+        {% endif %}
+
+        {% if project.description %}
+          <p>{{ project.description }}</p>
+        {% endif %}
+
+        <small class="muted">Project #{{ project.id }}</small>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">No projects yet. Add your first project above.</p>
+  {% endif %}
+</section>
+
+    <section class="card">
+      <h2>Task Management</h2>
+      <p class="muted">Create tasks and track their progress.</p>
+
+      <form action="{{ url_for('add_task') }}" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="task_project_id">Project *</label>
+        <select id="task_project_id" name="project_id" required>
+          <option value="">Select a project</option>
+          {% for project in projects %}
+            <option value="{{ project.id }}">{{ project.name }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="task_title">Task title *</label>
+        <input id="task_title" name="title" maxlength="160"
+               required placeholder="e.g. Design homepage">
+
+        <label for="task_description">Description</label>
+        <textarea id="task_description" name="description"
+                  placeholder="Task details"></textarea>
+
+        <label for="task_status">Status</label>
+        <select id="task_status" name="status">
+          {% for status in task_statuses %}
+            <option value="{{ status }}">{{ status }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="task_due_date">Due date</label>
+        <input id="task_due_date" name="due_date" type="date">
+
+        <button type="submit">Add Task</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Your Tasks ({{ tasks|length }})</h2>
+
+      {% if tasks %}
+        {% for task in tasks %}
+          <div class="client">
+            <h3>{{ task.title }}</h3>
+            <p class="muted">Project: {{ task.project_name }}</p>
+
+            {% if task.description %}
+              <p>{{ task.description }}</p>
+            {% endif %}
+
+            <p>Status: <strong>{{ task.status }}</strong></p>
+
+            {% if task.due_date %}
+              <p>Due date: {{ task.due_date }}</p>
+            {% endif %}
+
+            <form action="{{ url_for('update_task_status', task_id=task.id) }}"
+                  method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label for="task_status_{{ task.id }}">Update status</label>
+              <select id="task_status_{{ task.id }}" name="status">
+                {% for status in task_statuses %}
+                  <option value="{{ status }}"
+                    {% if status == task.status %}selected{% endif %}>
+                    {{ status }}
+                  </option>
+                {% endfor %}
+              </select>
+              <button type="submit">Update Status</button>
+            </form>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="muted">No tasks yet. Add your first task above.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Add a client</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="message {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form action="{{ url_for('add_client') }}" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="name">Client name *</label>
+        <input id="name" name="name" maxlength="120"
+               required placeholder="e.g. Alex Morgan">
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" maxlength="254"
+               placeholder="alex@example.com">
+
+        <label for="phone">Phone</label>
+        <input id="phone" name="phone" maxlength="40"
+               placeholder="Phone number">
+
+        <label for="company">Company</label>
+        <input id="company" name="company" maxlength="120"
+               placeholder="Company name">
+
+        <button type="submit">Save client</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Client list</h2>
+
+      {% if clients %}
+        {% for client in clients %}
+          <div class="client">
+            <strong>{{ client.name }}</strong>
+            {% if client.company %}
+              <p class="muted">{{ client.company }}</p>
+            {% endif %}
+            {% if client.email %}
+              <p>{{ client.email }}</p>
+            {% endif %}
+            {% if client.phone %}
+              <p>{{ client.phone }}</p>
+            {% endif %}
+            <small class="muted">Client #{{ client.id }}</small>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="muted">No clients yet. Add your first client above.</p>
+      {% endif %}
+    </section>
+  </main>
+
+  <footer>NScen Cloud Desk · Flask + SQLite</footer>
+</body>
+</html>

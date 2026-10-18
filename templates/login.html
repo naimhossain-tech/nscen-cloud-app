@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login | NScen Cloud Desk</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      padding: 20px; font-family: system-ui, sans-serif;
+      background: #0b1220; color: #e5edf8;
+    }
+    .card {
+      width: 100%; max-width: 400px; padding: 28px;
+      background: #142238; border: 1px solid #2a3c55;
+      border-radius: 16px;
+    }
+    p { color: #91a4bd; }
+    label { display: block; margin-top: 16px; }
+    input {
+      width: 100%; padding: 12px; margin-top: 6px;
+      border: 1px solid #40516b; border-radius: 8px;
+      background: #0b1220; color: white;
+    }
+    button {
+      width: 100%; margin-top: 22px; padding: 12px;
+      background: #42d6b0; color: #09251f;
+      border: 0; border-radius: 8px; font-weight: 700;
+    }
+    .error {
+      padding: 10px; background: #48252b;
+      border-radius: 8px; overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>NScen Cloud Desk</h1>
+    <p>Sign in to access your workspace.</p>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <p class="{{ category }}">{{ message }}</p>
+    {% endfor %}
+    <form method="post" action="{{ url_for('login') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="username">Username</label>
+      <input id="username" name="username" required
+             autocomplete="username" maxlength="80">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password"
+             required autocomplete="current-password">
+      <button type="submit">Login</button>
+    </form>
+  </main>
+</body>
+</html>

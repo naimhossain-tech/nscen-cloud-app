@@ -1,0 +1,27 @@
+.env
+nscen.db
+.venv/
+__pycache__/
+
+# Local backups and debug artifacts
+*.backup
+*.before-*
+*.clients-backup
+*.duplicate-tasks-backup
+*.pre-project-fix
+dashboard_debug.html
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local secrets and database
+.env
+.env.*
+!.env.example
+nscen.db
+*.db
+*.sqlite
+*.sqlite3
