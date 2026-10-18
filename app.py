@@ -1,5 +1,7 @@
 import os
 import sqlite3
+from urllib.parse import urlparse, unquote
+import pg8000
 from flask import (
     Flask, render_template, request,
     redirect, url_for, flash, jsonify
@@ -28,17 +30,83 @@ app.config["SESSION_COOKIE_SECURE"] = (
 csrf = CSRFProtect(app)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "nscen.db")
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
 PROJECT_STATUSES = ["Planning", "In Progress", "Completed", "On Hold"]
 TASK_STATUSES = ["Pending", "In Progress", "Completed"]
 
+class PGRow(dict):
+    pass
+
+class PGCursor:
+    def __init__(self, cursor):
+        self.cursor = cursor
+
+    @property
+    def rowcount(self):
+        return self.cursor.rowcount
+
+    def execute(self, sql, params=()):
+        self.cursor.execute(sql.replace("?", "%s"), params)
+        return self
+
+    def _row(self, values):
+        if values is None:
+            return None
+        columns = [col[0] for col in self.cursor.description]
+        return PGRow(zip(columns, values))
+
+    def fetchone(self):
+        return self._row(self.cursor.fetchone())
+
+    def fetchall(self):
+        return [self._row(row) for row in self.cursor.fetchall()]
+
+class PGConnection:
+    def __init__(self):
+        parsed = urlparse(DATABASE_URL)
+        self.conn = pg8000.connect(
+            host=parsed.hostname,
+            port=parsed.port or 5432,
+            database=parsed.path.lstrip("/"),
+            user=unquote(parsed.username or ""),
+            password=unquote(parsed.password or ""),
+            ssl_context=True,
+            timeout=15,
+        )
+
+    def execute(self, sql, params=()):
+        return PGCursor(self.conn.cursor()).execute(sql, params)
+
+    def commit(self):
+        self.conn.commit()
+
+    def rollback(self):
+        self.conn.rollback()
+
+    def close(self):
+        self.conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            if exc_type is None:
+                self.commit()
+            else:
+                self.rollback()
+        finally:
+            self.close()
+        return False
 
 def get_db():
+    if DATABASE_URL:
+        return PGConnection()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
-
-
 
 login_manager = LoginManager()
 login_manager.login_view = "login"
@@ -53,6 +121,10 @@ class User(UserMixin):
 
 
 def init_auth_db():
+    if DATABASE_URL:
+        # The PostgreSQL users table was created during migration.
+        return
+
     with get_db() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -74,7 +146,7 @@ def load_user(user_id):
             ).fetchone()
         if row:
             return User(row["id"], row["username"])
-    except (ValueError, sqlite3.Error):
+    except Exception:
         return None
     return None
 
@@ -170,7 +242,7 @@ def add_client():
                 VALUES (?, ?, ?, ?)
             """, (name, email, phone, company))
         flash("Client saved successfully.", "success")
-    except sqlite3.Error:
+    except Exception:
         app.logger.exception("Could not save client")
         flash("Could not save client.", "error")
 
@@ -223,7 +295,7 @@ def add_project():
                 deadline or None
             ))
         flash("Project saved successfully.", "success")
-    except (ValueError, sqlite3.Error):
+    except Exception:
         app.logger.exception("Could not save project")
         flash("Could not save project. Check the form and try again.", "error")
 

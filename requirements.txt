@@ -4,3 +4,4 @@ python-dotenv
 requests
 Flask-Login
 Flask-WTF
+pg8000
